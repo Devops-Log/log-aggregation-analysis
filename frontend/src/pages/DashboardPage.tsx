@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { useTheme } from '../context/ThemeContext';
 import {
   AlertOctagon,
   AlertTriangle,
@@ -56,6 +57,7 @@ interface MetricsData {
 }
 
 export const DashboardPage: React.FC = () => {
+  const { theme } = useTheme();
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [logs, setLogs] = useState<LogItem[]>([]);
   const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0, limit: 15 });
@@ -143,29 +145,29 @@ export const DashboardPage: React.FC = () => {
     switch (level) {
       case 'INFO':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 inline-flex items-center space-x-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
             <span>INFO</span>
           </span>
         );
       case 'WARN':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400"></span>
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 inline-flex items-center space-x-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
             <span>WARN</span>
           </span>
         );
       case 'ERROR':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-red-500/10 text-red-400 border border-red-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-400"></span>
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/30 inline-flex items-center space-x-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400"></span>
             <span>ERROR</span>
           </span>
         );
       case 'CRITICAL':
         return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-purple-500/20 text-purple-300 border border-purple-500/40 inline-flex items-center space-x-1 animate-pulse shadow-sm shadow-purple-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400"></span>
+          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-purple-500/15 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40 inline-flex items-center space-x-1 animate-pulse shadow-sm shadow-purple-500/20">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400"></span>
             <span>CRITICAL</span>
           </span>
         );
@@ -183,19 +185,25 @@ export const DashboardPage: React.FC = () => {
       ]
     : [];
 
+  const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0';
+  const axisStroke = theme === 'dark' ? '#64748b' : '#94a3b8';
+  const tooltipStyle = theme === 'dark' 
+    ? { backgroundColor: '#0d1322', borderColor: '#334155', borderRadius: '12px', fontSize: '12px', color: '#f8fafc' } 
+    : { backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderRadius: '12px', fontSize: '12px', color: '#0f172a' };
+
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 p-4 lg:p-8 space-y-6">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 p-4 lg:p-8 space-y-6 transition-colors duration-200">
       
       {/* Top Header & Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center space-x-3">
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center space-x-3">
             <span>Observability Dashboard</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20 font-mono font-normal">
+            <span className="text-xs px-2.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono font-normal">
               Live Stream
             </span>
           </h1>
-          <p className="text-sm text-slate-400 mt-1">Real-time log aggregation, metrics analytics & security diagnostics</p>
+          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time log aggregation, metrics analytics & security diagnostics</p>
         </div>
 
         <div className="flex items-center space-x-3">
@@ -205,10 +213,10 @@ export const DashboardPage: React.FC = () => {
               fetchLogs();
             }}
             disabled={loadingMetrics || loadingLogs}
-            className="p-2.5 rounded-xl bg-[#111726] border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white transition-all shadow-sm flex items-center space-x-2 text-xs font-medium"
+            className="p-2.5 rounded-xl bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all shadow-sm flex items-center space-x-2 text-xs font-medium"
             title="Refresh metrics & stream"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingMetrics || loadingLogs ? 'animate-spin text-blue-400' : ''}`} />
+            <RefreshCw className={`h-4 w-4 ${loadingMetrics || loadingLogs ? 'animate-spin text-blue-500' : ''}`} />
             <span className="hidden sm:inline">Refresh Data</span>
           </button>
 
@@ -226,66 +234,66 @@ export const DashboardPage: React.FC = () => {
       {/* STAT CARDS ROW */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Card 1: Total Logs */}
-        <div className="rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Total Logs (24h)</span>
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Logs (24h)</span>
+            <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
               <Database className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-white">
+            <span className="text-3xl font-extrabold tracking-tight font-mono text-slate-900 dark:text-white">
               {metrics ? metrics.totalLogs.toLocaleString() : '—'}
             </span>
-            <span className="text-xs text-blue-400 font-mono font-medium">Recorded events</span>
+            <span className="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium">Recorded events</span>
           </div>
         </div>
 
         {/* Card 2: Error Rate */}
-        <div className="rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Error Rate</span>
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Error Rate</span>
+            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
               <AlertTriangle className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-amber-400">
+            <span className="text-3xl font-extrabold tracking-tight font-mono text-amber-600 dark:text-amber-400">
               {metrics ? `${metrics.errorRate}%` : '—'}
             </span>
-            <span className="text-xs text-slate-400 font-mono">ERROR + CRITICAL</span>
+            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">ERROR + CRITICAL</span>
           </div>
         </div>
 
         {/* Card 3: Monitored Services */}
-        <div className="rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Services</span>
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Services</span>
+            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
               <Server className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-emerald-400">
+            <span className="text-3xl font-extrabold tracking-tight font-mono text-emerald-600 dark:text-emerald-400">
               {metrics ? metrics.activeServicesCount : '—'}
             </span>
-            <span className="text-xs text-emerald-400/80 font-mono">Microservices online</span>
+            <span className="text-xs text-emerald-600/80 dark:text-emerald-400/80 font-mono">Microservices online</span>
           </div>
         </div>
 
         {/* Card 4: Critical Alerts */}
-        <div className="rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg relative overflow-hidden group hover:border-slate-700 transition-all">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Critical Alerts</span>
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Critical Alerts</span>
+            <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
               <AlertOctagon className="h-5 w-5" />
             </div>
           </div>
           <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-purple-400">
+            <span className="text-3xl font-extrabold tracking-tight font-mono text-purple-600 dark:text-purple-400">
               {metrics ? metrics.criticalEvents : '—'}
             </span>
-            <span className="text-xs text-purple-400/80 font-mono">P1 Action Required</span>
+            <span className="text-xs text-purple-600/80 dark:text-purple-400/80 font-mono">P1 Action Required</span>
           </div>
         </div>
       </div>
@@ -294,18 +302,18 @@ export const DashboardPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Log Volume Timeseries Chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg space-y-4">
+        <div className="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-white">Log Volume Over Time (24h)</h2>
-              <p className="text-xs text-slate-400">Hourly throughput across all connected microservices</p>
+              <h2 className="text-base font-semibold text-slate-900 dark:text-white">Log Volume Over Time (24h)</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">Hourly throughput across all connected microservices</p>
             </div>
             <div className="flex items-center space-x-3 text-xs font-mono">
-              <span className="flex items-center space-x-1 text-blue-400">
+              <span className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                 <span>Total</span>
               </span>
-              <span className="flex items-center space-x-1 text-red-400">
+              <span className="flex items-center space-x-1 text-red-600 dark:text-red-400">
                 <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
                 <span>Errors</span>
               </span>
@@ -326,12 +334,11 @@ export const DashboardPage: React.FC = () => {
                       <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="time" stroke="#64748b" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="time" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
+                  <YAxis stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0d1322', borderColor: '#334155', borderRadius: '12px', fontSize: '12px' }}
-                    itemStyle={{ color: '#e2e8f0' }}
+                    contentStyle={tooltipStyle}
                   />
                   <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" name="Total Logs" />
                   <Area type="monotone" dataKey="ERROR" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorError)" name="Errors" />
@@ -346,22 +353,22 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* Severity Distribution Bar Chart */}
-        <div className="rounded-2xl border border-slate-800 bg-[#111726] p-5 shadow-lg space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg space-y-4">
           <div>
-            <h2 className="text-base font-semibold text-white">Severity Breakdown</h2>
-            <p className="text-xs text-slate-400">Distribution by severity category</p>
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Severity Breakdown</h2>
+            <p className="text-xs text-slate-500 dark:text-slate-400">Distribution by severity category</p>
           </div>
 
           <div className="h-64 w-full pt-2">
             {metrics ? (
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={severityBarData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
-                  <XAxis dataKey="name" stroke="#64748b" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
-                  <YAxis stroke="#64748b" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
+                  <XAxis dataKey="name" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
+                  <YAxis stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
                   <Tooltip
-                    contentStyle={{ backgroundColor: '#0d1322', borderColor: '#334155', borderRadius: '12px', fontSize: '12px' }}
-                    cursor={{ fill: '#1e293b' }}
+                    contentStyle={tooltipStyle}
+                    cursor={{ fill: theme === 'dark' ? '#1e293b' : '#f1f5f9' }}
                   />
                   <Bar dataKey="count" radius={[6, 6, 0, 0]}>
                     {severityBarData.map((entry, index) => (
@@ -381,20 +388,20 @@ export const DashboardPage: React.FC = () => {
       </div>
 
       {/* LOG EXPLORER SECTION */}
-      <div className="rounded-2xl border border-slate-800 bg-[#111726] shadow-xl overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] shadow-sm dark:shadow-xl overflow-hidden transition-colors duration-200">
         
         {/* Filter Controls Header */}
-        <div className="p-4 lg:p-6 border-b border-slate-800 space-y-4">
+        <div className="p-4 lg:p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex items-center space-x-2">
-              <Terminal className="h-5 w-5 text-blue-400" />
-              <h2 className="text-lg font-bold text-white tracking-tight">Log Stream Explorer</h2>
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-400 font-mono">
+              <Terminal className="h-5 w-5 text-blue-500 dark:text-blue-400" />
+              <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Log Stream Explorer</h2>
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
                 {pagination.total} entries
               </span>
             </div>
 
-            <div className="text-xs text-slate-400 font-mono">
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
               Auto-updating stream
             </div>
           </div>
@@ -402,7 +409,7 @@ export const DashboardPage: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {/* Search Input */}
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-500">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
                 <Search className="h-4 w-4" />
               </div>
               <input
@@ -413,7 +420,7 @@ export const DashboardPage: React.FC = () => {
                   setCurrentPage(1);
                 }}
                 placeholder="Search logs by keyword or regex..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-[#090d16] border border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-200 placeholder-slate-500 outline-none transition-all"
+                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition-all"
               />
             </div>
 
@@ -425,14 +432,14 @@ export const DashboardPage: React.FC = () => {
                   setSelectedService(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-[#090d16] border border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-200 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 outline-none transition-all appearance-none cursor-pointer"
               >
                 <option value="ALL">All Services</option>
                 {metrics?.services.map((srv) => (
                   <option key={srv} value={srv}>{srv}</option>
                 ))}
               </select>
-              <ChevronDown className="h-4 w-4 text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
+              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
             </div>
 
             {/* Severity Dropdown Filter */}
@@ -443,7 +450,7 @@ export const DashboardPage: React.FC = () => {
                   setSelectedLevel(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-[#090d16] border border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-200 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 outline-none transition-all appearance-none cursor-pointer"
               >
                 <option value="ALL">All Severities</option>
                 <option value="INFO">INFO</option>
@@ -451,15 +458,15 @@ export const DashboardPage: React.FC = () => {
                 <option value="ERROR">ERROR</option>
                 <option value="CRITICAL">CRITICAL</option>
               </select>
-              <ChevronDown className="h-4 w-4 text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
+              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
             </div>
           </div>
         </div>
 
         {/* LOG TABLE */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300 font-mono">
-            <thead className="bg-[#0d1322] text-slate-400 border-b border-slate-800 uppercase text-[10px] tracking-wider">
+          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 font-mono">
+            <thead className="bg-slate-100 dark:bg-[#0d1322] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 uppercase text-[10px] tracking-wider">
               <tr>
                 <th className="py-3 px-4 w-44">Timestamp</th>
                 <th className="py-3 px-4 w-28">Severity</th>
@@ -468,7 +475,7 @@ export const DashboardPage: React.FC = () => {
                 <th className="py-3 px-4 w-12 text-center">Payload</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-800/60">
+            <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
               {logs.length > 0 ? (
                 logs.map((log) => {
                   const isExpanded = expandedLogId === log._id;
@@ -478,43 +485,43 @@ export const DashboardPage: React.FC = () => {
                     <React.Fragment key={log._id}>
                       <tr
                         onClick={() => toggleExpand(log._id)}
-                        className={`hover:bg-slate-800/40 cursor-pointer transition-colors ${
-                          isExpanded ? 'bg-slate-800/50' : ''
+                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-800/40 cursor-pointer transition-colors ${
+                          isExpanded ? 'bg-slate-100 dark:bg-slate-800/50' : ''
                         }`}
                       >
-                        <td className="py-3 px-4 text-slate-400 whitespace-nowrap">
+                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
                           {formattedTime}
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap">
                           {getLevelBadge(log.level)}
                         </td>
                         <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded bg-slate-800 text-blue-300 border border-slate-700">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-700 dark:text-blue-300 border border-slate-200 dark:border-slate-700 font-medium">
                             {log.service}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-200 truncate max-w-md">
+                        <td className="py-3 px-4 text-slate-900 dark:text-slate-200 truncate max-w-md">
                           {log.message}
                         </td>
                         <td className="py-3 px-4 text-center">
                           {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-blue-400 inline" />
+                            <ChevronUp className="h-4 w-4 text-blue-500 dark:text-blue-400 inline" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-500 inline" />
+                            <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 inline" />
                           )}
                         </td>
                       </tr>
 
                       {/* Expandable JSON Metadata View */}
                       {isExpanded && (
-                        <tr className="bg-[#090d16]/90 border-t border-b border-slate-800">
+                        <tr className="bg-slate-50 dark:bg-[#090d16]/90 border-t border-b border-slate-200 dark:border-slate-800">
                           <td colSpan={5} className="p-4">
-                            <div className="rounded-xl border border-slate-800 bg-[#0d1322] p-4 space-y-2">
-                              <div className="flex items-center justify-between text-[11px] text-slate-400 pb-2 border-b border-slate-800">
-                                <span className="font-semibold text-blue-400">Contextual Metadata Payload (JSON)</span>
+                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1322] p-4 space-y-2 shadow-inner">
+                              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800">
+                                <span className="font-semibold text-blue-600 dark:text-blue-400">Contextual Metadata Payload (JSON)</span>
                                 <span>ID: {log._id}</span>
                               </div>
-                              <pre className="text-emerald-400 text-xs font-mono overflow-x-auto p-2 bg-[#060910] rounded-lg border border-slate-900 leading-relaxed">
+                              <pre className="text-emerald-600 dark:text-emerald-400 text-xs font-mono overflow-x-auto p-3 bg-slate-900 dark:bg-[#060910] text-slate-100 rounded-lg border border-slate-800 dark:border-slate-900 leading-relaxed">
                                 {JSON.stringify(log.metadata || {}, null, 2)}
                               </pre>
                             </div>
@@ -536,24 +543,24 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* PAGINATION FOOTER */}
-        <div className="p-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
+        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono bg-white dark:bg-[#111726]">
           <div>
-            Showing Page <span className="text-white font-bold">{pagination.page}</span> of{' '}
-            <span className="text-white font-bold">{pagination.totalPages || 1}</span> ({pagination.total} logs)
+            Showing Page <span className="text-slate-900 dark:text-white font-bold">{pagination.page}</span> of{' '}
+            <span className="text-slate-900 dark:text-white font-bold">{pagination.totalPages || 1}</span> ({pagination.total} logs)
           </div>
 
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Previous
             </button>
             <button
               onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
               disabled={currentPage >= pagination.totalPages}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
             >
               Next
             </button>

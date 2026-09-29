@@ -1,5 +1,6 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { Navbar } from './components/Navbar';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
@@ -12,7 +13,7 @@ const AppContent: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#090d16]">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] transition-colors duration-200">
       <Navbar />
       <main>
         <DashboardPage />
@@ -23,9 +24,11 @@ const AppContent: React.FC = () => {
 
 export function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

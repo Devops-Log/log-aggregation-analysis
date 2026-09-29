@@ -1,9 +1,9 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 @layer base {
   body {
-    background-color: #090d16;
-    color: #f8fafc;
+    @apply bg-slate-50 text-slate-900 dark:bg-[#090d16] dark:text-slate-100 transition-colors duration-200;
     min-height: 100vh;
   }
 }
@@ -15,14 +15,22 @@
 }
 
 ::-webkit-scrollbar-track {
-  background: #090d16;
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: rgba(148, 163, 184, 0.4);
   border-radius: 4px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: #1e293b;
+}
+
 ::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.6);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
   background: #334155;
 }
