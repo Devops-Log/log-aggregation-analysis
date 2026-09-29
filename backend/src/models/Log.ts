@@ -26,7 +26,9 @@ const logSchema = new Schema<ILog>(
   { timestamps: false }
 );
 
-logSchema.index({ timestamp: -1 });
+// Compound index for high-throughput log querying
 logSchema.index({ service: 1, level: 1, timestamp: -1 });
+// Secondary index on timestamp for time-range queries
+logSchema.index({ timestamp: -1 });
 
 export const Log = mongoose.model<ILog>('Log', logSchema);

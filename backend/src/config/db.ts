@@ -1,23 +1,44 @@
 import mongoose from 'mongoose';
 import { User } from '../models/User';
+import { Log } from '../models/Log';
+import { seedDatabase } from './seed';
+
+let isEventListenersAttached = false;
+
+function attachEventListeners(): void {
+  if (isEventListenersAttached) return;
+
+  mongoose.connection.on('error', (err) => {
+    console.error('[Database] Connection error:', err);
+  });
+
+  mongoose.connection.on('disconnected', () => {
+    console.warn('[Database] Disconnected from MongoDB. Attempting auto-reconnection...');
+  });
+
+  mongoose.connection.on('reconnected', () => {
+    console.log('[Database] Reconnected to MongoDB successfully.');
+  });
+
+  isEventListenersAttached = true;
+}
 
 export const connectDB = async (): Promise<void> => {
   try {
     const connStr = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/centrallog';
+    attachEventListeners();
+
     await mongoose.connect(connStr);
     console.log(`[Database] Connected successfully to MongoDB at ${connStr}`);
 
-    // Initial seeder check
+    // Automated database bootstrapper check
     const userCount = await User.countDocuments();
-    if (userCount === 0) {
-      console.log('[Database] No existing users found. Seeding default admin user...');
-      await User.create({
-        name: 'DevOps Lead',
-        email: 'admin@centrallog.local',
-        password: 'password123',
-        role: 'admin',
-      });
-      console.log('[Database] Default admin created: admin@centrallog.local / password123');
+    const logCount = await Log.countDocuments();
+
+    if (userCount === 0 || logCount === 0) {
+      console.log('[Database] Uninitialized database detected. Bootstrapping initial seed data...');
+      await seedDatabase(false);
+      console.log('[Database] Bootstrapper seeding completed.');
     }
   } catch (error) {
     console.error('[Database] Connection failed:', error);
