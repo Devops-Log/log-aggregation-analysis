@@ -1,4 +1,3 @@
-# Stage 1: Compile the TypeScript application
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -12,7 +11,6 @@ COPY src ./src
 RUN npm run build
 
 
-# Stage 2: Create the smaller production image
 FROM node:20-alpine AS production
 
 WORKDIR /app

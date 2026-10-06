@@ -29,7 +29,9 @@ export const connectDB = async (): Promise<void> => {
     attachEventListeners();
 
     await mongoose.connect(connStr);
-    console.log(`[Database] Connected successfully to MongoDB at ${connStr}`);
+    console.log(
+  `[Database] Connected successfully to MongoDB: ${mongoose.connection.host}/${mongoose.connection.name}`
+);
 
     // Automated database bootstrapper check
     const userCount = await User.countDocuments();
