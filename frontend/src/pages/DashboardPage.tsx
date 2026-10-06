@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { API_BASE_URL } from '../config';
 import { useTheme } from '../context/ThemeContext';
 import {
   AlertOctagon,
@@ -13,16 +14,16 @@ import {
   Terminal,
 } from 'lucide-react';
 import {
-  AreaChart,
   Area,
-  BarChart,
+  AreaChart,
   Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
   XAxis,
   YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
 } from 'recharts';
 
 interface LogItem {
@@ -30,7 +31,7 @@ interface LogItem {
   service: string;
   level: 'INFO' | 'WARN' | 'ERROR' | 'CRITICAL';
   message: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
   timestamp: string;
 }
 
@@ -56,43 +57,66 @@ interface MetricsData {
   }>;
 }
 
+interface PaginationData {
+  page: number;
+  totalPages: number;
+  total: number;
+  limit: number;
+}
+
 export const DashboardPage: React.FC = () => {
   const { theme } = useTheme();
+
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
   const [logs, setLogs] = useState<LogItem[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, totalPages: 1, total: 0, limit: 15 });
+  const [pagination, setPagination] = useState<PaginationData>({
+    page: 1,
+    totalPages: 1,
+    total: 0,
+    limit: 15,
+  });
+
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [loadingLogs, setLoadingLogs] = useState(false);
   const [seeding, setSeeding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedService, setSelectedService] = useState('ALL');
   const [selectedLevel, setSelectedLevel] = useState('ALL');
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
+  const [expandedLogId, setExpandedLogId] = useState<string | null>(
+    null,
+  );
 
-  // Fetch metrics from backend
   const fetchMetrics = useCallback(async () => {
     setLoadingMetrics(true);
+
     try {
-      const res = await fetch('http://localhost:5000/api/v1/logs/metrics');
-      if (res.ok) {
-        const data = await res.json();
-        setMetrics(data);
+      const response = await fetch(`${API_BASE_URL}/logs/metrics`);
+
+      if (!response.ok) {
+        throw new Error('Unable to retrieve dashboard metrics.');
       }
-    } catch (err) {
-      console.error('Error fetching metrics:', err);
+
+      const data: MetricsData = await response.json();
+      setMetrics(data);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to retrieve dashboard metrics.',
+      );
     } finally {
       setLoadingMetrics(false);
     }
   }, []);
 
-  // Fetch logs from backend
   const fetchLogs = useCallback(async () => {
     setLoadingLogs(true);
+
     try {
-      const queryParams = new URLSearchParams({
+      const queryParameters = new URLSearchParams({
         page: currentPage.toString(),
         limit: '15',
         search: searchTerm,
@@ -100,357 +124,532 @@ export const DashboardPage: React.FC = () => {
         level: selectedLevel,
       });
 
-      const res = await fetch(`http://localhost:5000/api/v1/logs?${queryParams.toString()}`);
-      if (res.ok) {
-        const data = await res.json();
-        setLogs(data.logs);
-        setPagination(data.pagination);
+      const response = await fetch(
+        `${API_BASE_URL}/logs?${queryParameters.toString()}`,
+      );
+
+      if (!response.ok) {
+        throw new Error('Unable to retrieve log records.');
       }
-    } catch (err) {
-      console.error('Error fetching logs:', err);
+
+      const data: {
+        logs: LogItem[];
+        pagination: PaginationData;
+      } = await response.json();
+
+      setLogs(data.logs);
+      setPagination(data.pagination);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to retrieve log records.',
+      );
     } finally {
       setLoadingLogs(false);
     }
-  }, [currentPage, searchTerm, selectedService, selectedLevel]);
+  }, [
+    currentPage,
+    searchTerm,
+    selectedService,
+    selectedLevel,
+  ]);
 
   useEffect(() => {
-    fetchMetrics();
+    void fetchMetrics();
   }, [fetchMetrics]);
 
   useEffect(() => {
-    fetchLogs();
+    void fetchLogs();
   }, [fetchLogs]);
 
-  // Seed demo logs handler
+  const handleRefresh = async () => {
+    setError(null);
+    await Promise.all([fetchMetrics(), fetchLogs()]);
+  };
+
   const handleSeedLogs = async () => {
+    setError(null);
     setSeeding(true);
+
     try {
-      const res = await fetch('http://localhost:5000/api/v1/logs/seed', { method: 'POST' });
-      if (res.ok) {
-        setCurrentPage(1);
-        await Promise.all([fetchMetrics(), fetchLogs()]);
+      const response = await fetch(`${API_BASE_URL}/logs/seed`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Unable to generate demonstration logs.');
       }
-    } catch (err) {
-      console.error('Error seeding logs:', err);
+
+      setCurrentPage(1);
+      await Promise.all([fetchMetrics(), fetchLogs()]);
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to generate demonstration logs.',
+      );
     } finally {
       setSeeding(false);
     }
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedLogId(expandedLogId === id ? null : id);
-  };
-
-  const getLevelBadge = (level: string) => {
-    switch (level) {
-      case 'INFO':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 dark:bg-emerald-400"></span>
-            <span>INFO</span>
-          </span>
-        );
-      case 'WARN':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500 dark:bg-amber-400"></span>
-            <span>WARN</span>
-          </span>
-        );
-      case 'ERROR':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-red-500/10 text-red-700 dark:text-red-400 border border-red-500/30 inline-flex items-center space-x-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-red-500 dark:bg-red-400"></span>
-            <span>ERROR</span>
-          </span>
-        );
-      case 'CRITICAL':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-purple-500/15 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 border border-purple-500/40 inline-flex items-center space-x-1 animate-pulse shadow-sm shadow-purple-500/20">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-500 dark:bg-purple-400"></span>
-            <span>CRITICAL</span>
-          </span>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const severityBarData = metrics
+  const severityData = metrics
     ? [
-        { name: 'INFO', count: metrics.severityCounts.INFO, color: '#10b981' },
-        { name: 'WARN', count: metrics.severityCounts.WARN, color: '#f59e0b' },
-        { name: 'ERROR', count: metrics.severityCounts.ERROR, color: '#ef4444' },
-        { name: 'CRITICAL', count: metrics.severityCounts.CRITICAL, color: '#a855f7' },
+        {
+          name: 'INFO',
+          count: metrics.severityCounts.INFO,
+          color: '#10b981',
+        },
+        {
+          name: 'WARN',
+          count: metrics.severityCounts.WARN,
+          color: '#f59e0b',
+        },
+        {
+          name: 'ERROR',
+          count: metrics.severityCounts.ERROR,
+          color: '#ef4444',
+        },
+        {
+          name: 'CRITICAL',
+          count: metrics.severityCounts.CRITICAL,
+          color: '#a855f7',
+        },
       ]
     : [];
 
-  const gridStroke = theme === 'dark' ? '#1e293b' : '#e2e8f0';
-  const axisStroke = theme === 'dark' ? '#64748b' : '#94a3b8';
-  const tooltipStyle = theme === 'dark' 
-    ? { backgroundColor: '#0d1322', borderColor: '#334155', borderRadius: '12px', fontSize: '12px', color: '#f8fafc' } 
-    : { backgroundColor: '#ffffff', borderColor: '#cbd5e1', borderRadius: '12px', fontSize: '12px', color: '#0f172a' };
+  const gridColor = theme === 'dark' ? '#1e293b' : '#e2e8f0';
+  const axisColor = theme === 'dark' ? '#64748b' : '#94a3b8';
+
+  const tooltipStyle =
+    theme === 'dark'
+      ? {
+          backgroundColor: '#0d1322',
+          borderColor: '#334155',
+          borderRadius: '12px',
+          color: '#f8fafc',
+          fontSize: '12px',
+        }
+      : {
+          backgroundColor: '#ffffff',
+          borderColor: '#cbd5e1',
+          borderRadius: '12px',
+          color: '#0f172a',
+          fontSize: '12px',
+        };
+
+  const getLevelClasses = (level: LogItem['level']) => {
+    switch (level) {
+      case 'INFO':
+        return 'border-emerald-500/30 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400';
+
+      case 'WARN':
+        return 'border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400';
+
+      case 'ERROR':
+        return 'border-red-500/30 bg-red-500/10 text-red-700 dark:text-red-400';
+
+      case 'CRITICAL':
+        return 'border-purple-500/40 bg-purple-500/10 text-purple-700 dark:text-purple-300';
+
+      default:
+        return '';
+    }
+  };
+
+  const metricCards = [
+    {
+      title: 'Total Logs (24h)',
+      value: metrics?.totalLogs.toLocaleString() ?? '—',
+      subtitle: 'Recorded events',
+      icon: Database,
+      color: 'text-blue-600 dark:text-blue-400',
+      iconBackground: 'bg-blue-500/10 border-blue-500/20',
+    },
+    {
+      title: 'Error Rate',
+      value:
+        metrics !== null ? `${metrics.errorRate}%` : '—',
+      subtitle: 'ERROR + CRITICAL',
+      icon: AlertTriangle,
+      color: 'text-amber-600 dark:text-amber-400',
+      iconBackground: 'bg-amber-500/10 border-amber-500/20',
+    },
+    {
+      title: 'Active Services',
+      value: metrics?.activeServicesCount ?? '—',
+      subtitle: 'Microservices online',
+      icon: Server,
+      color: 'text-emerald-600 dark:text-emerald-400',
+      iconBackground: 'bg-emerald-500/10 border-emerald-500/20',
+    },
+    {
+      title: 'Critical Alerts',
+      value: metrics?.criticalEvents ?? '—',
+      subtitle: 'P1 action required',
+      icon: AlertOctagon,
+      color: 'text-purple-600 dark:text-purple-400',
+      iconBackground: 'bg-purple-500/10 border-purple-500/20',
+    },
+  ];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#090d16] text-slate-900 dark:text-slate-100 p-4 lg:p-8 space-y-6 transition-colors duration-200">
-      
-      {/* Top Header & Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="min-h-screen space-y-6 bg-slate-50 p-4 text-slate-900 transition-colors duration-200 dark:bg-[#090d16] dark:text-slate-100 lg:p-8">
+      <header className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white flex items-center space-x-3">
-            <span>Observability Dashboard</span>
-            <span className="text-xs px-2.5 py-0.5 rounded-md bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-mono font-normal">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+              Observability Dashboard
+            </h1>
+
+            <span className="rounded-md border border-blue-500/20 bg-blue-500/10 px-2.5 py-0.5 font-mono text-xs font-normal text-blue-600 dark:text-blue-400">
               Live Stream
             </span>
-          </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Real-time log aggregation, metrics analytics & security diagnostics</p>
+          </div>
+
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Real-time log aggregation, metrics analytics and diagnostics
+          </p>
         </div>
 
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => {
-              fetchMetrics();
-              fetchLogs();
-            }}
+            type="button"
+            onClick={() => void handleRefresh()}
             disabled={loadingMetrics || loadingLogs}
-            className="p-2.5 rounded-xl bg-white dark:bg-[#111726] border border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700 text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white transition-all shadow-sm flex items-center space-x-2 text-xs font-medium"
-            title="Refresh metrics & stream"
+            className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-2.5 text-xs font-medium text-slate-700 shadow-sm transition hover:border-slate-300 disabled:opacity-50 dark:border-slate-800 dark:bg-[#111726] dark:text-slate-300"
           >
-            <RefreshCw className={`h-4 w-4 ${loadingMetrics || loadingLogs ? 'animate-spin text-blue-500' : ''}`} />
+            <RefreshCw
+              className={`h-4 w-4 ${
+                loadingMetrics || loadingLogs
+                  ? 'animate-spin text-blue-500'
+                  : ''
+              }`}
+            />
+
             <span className="hidden sm:inline">Refresh Data</span>
           </button>
 
           <button
-            onClick={handleSeedLogs}
+            type="button"
+            onClick={() => void handleSeedLogs()}
             disabled={seeding}
-            className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 hover:from-blue-500 hover:to-violet-500 text-white font-semibold text-xs shadow-lg shadow-blue-600/25 flex items-center space-x-2 transition-all disabled:opacity-50"
+            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-blue-600/25 transition hover:from-blue-500 hover:to-violet-500 disabled:opacity-50"
           >
-            <Sparkles className={`h-4 w-4 ${seeding ? 'animate-spin' : ''}`} />
-            <span>{seeding ? 'Seeding Telemetry...' : 'Seed Demo Logs'}</span>
+            <Sparkles
+              className={`h-4 w-4 ${
+                seeding ? 'animate-spin' : ''
+              }`}
+            />
+
+            <span>
+              {seeding ? 'Seeding Telemetry...' : 'Seed Demo Logs'}
+            </span>
           </button>
         </div>
-      </div>
+      </header>
 
-      {/* STAT CARDS ROW */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Card 1: Total Logs */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total Logs (24h)</span>
-            <div className="h-10 w-10 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <Database className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-slate-900 dark:text-white">
-              {metrics ? metrics.totalLogs.toLocaleString() : '—'}
-            </span>
-            <span className="text-xs text-blue-600 dark:text-blue-400 font-mono font-medium">Recorded events</span>
-          </div>
+      {error && (
+        <div
+          role="alert"
+          className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-950/40 dark:text-red-300"
+        >
+          {error}
         </div>
+      )}
 
-        {/* Card 2: Error Rate */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Error Rate</span>
-            <div className="h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <AlertTriangle className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-amber-600 dark:text-amber-400">
-              {metrics ? `${metrics.errorRate}%` : '—'}
-            </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400 font-mono">ERROR + CRITICAL</span>
-          </div>
-        </div>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {metricCards.map((card) => {
+          const Icon = card.icon;
 
-        {/* Card 3: Monitored Services */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Active Services</span>
-            <div className="h-10 w-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-              <Server className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-emerald-600 dark:text-emerald-400">
-              {metrics ? metrics.activeServicesCount : '—'}
-            </span>
-            <span className="text-xs text-emerald-600/80 dark:text-emerald-400/80 font-mono">Microservices online</span>
-          </div>
-        </div>
+          return (
+            <article
+              key={card.title}
+              className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300 dark:border-slate-800 dark:bg-[#111726]"
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  {card.title}
+                </span>
 
-        {/* Card 4: Critical Alerts */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg relative overflow-hidden group hover:border-slate-300 dark:hover:border-slate-700 transition-all">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Critical Alerts</span>
-            <div className="h-10 w-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <AlertOctagon className="h-5 w-5" />
-            </div>
-          </div>
-          <div className="mt-4 flex items-baseline justify-between">
-            <span className="text-3xl font-extrabold tracking-tight font-mono text-purple-600 dark:text-purple-400">
-              {metrics ? metrics.criticalEvents : '—'}
-            </span>
-            <span className="text-xs text-purple-600/80 dark:text-purple-400/80 font-mono">P1 Action Required</span>
-          </div>
-        </div>
-      </div>
+                <div
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl border ${card.iconBackground} ${card.color}`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+              </div>
 
-      {/* ANALYTICS ROW */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Log Volume Timeseries Chart */}
-        <div className="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-semibold text-slate-900 dark:text-white">Log Volume Over Time (24h)</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400">Hourly throughput across all connected microservices</p>
-            </div>
-            <div className="flex items-center space-x-3 text-xs font-mono">
-              <span className="flex items-center space-x-1 text-blue-600 dark:text-blue-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                <span>Total</span>
-              </span>
-              <span className="flex items-center space-x-1 text-red-600 dark:text-red-400">
-                <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                <span>Errors</span>
-              </span>
-            </div>
+              <div className="mt-4 flex items-end justify-between gap-3">
+                <span
+                  className={`font-mono text-3xl font-extrabold tracking-tight ${card.color}`}
+                >
+                  {card.value}
+                </span>
+
+                <span className="text-right font-mono text-xs text-slate-500 dark:text-slate-400">
+                  {card.subtitle}
+                </span>
+              </div>
+            </article>
+          );
+        })}
+      </section>
+
+      <section className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <article className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#111726] lg:col-span-2">
+          <div>
+            <h2 className="font-semibold text-slate-900 dark:text-white">
+              Log Volume Over Time
+            </h2>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Hourly throughput across all connected services
+            </p>
           </div>
 
-          <div className="h-64 w-full pt-2">
+          <div className="h-64">
             {metrics && metrics.timeseries.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={metrics.timeseries} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <AreaChart
+                  data={metrics.timeseries}
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: -20,
+                    bottom: 0,
+                  }}
+                >
                   <defs>
-                    <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    <linearGradient
+                      id="totalGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#3b82f6"
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="#3b82f6"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
-                    <linearGradient id="colorError" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.4} />
-                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
+
+                    <linearGradient
+                      id="errorGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
+                      <stop
+                        offset="5%"
+                        stopColor="#ef4444"
+                        stopOpacity={0.4}
+                      />
+                      <stop
+                        offset="95%"
+                        stopColor="#ef4444"
+                        stopOpacity={0}
+                      />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
-                  <XAxis dataKey="time" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
-                  <YAxis stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
-                  <Tooltip
-                    contentStyle={tooltipStyle}
+
+                  <CartesianGrid
+                    stroke={gridColor}
+                    strokeDasharray="3 3"
+                    vertical={false}
                   />
-                  <Area type="monotone" dataKey="total" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#colorTotal)" name="Total Logs" />
-                  <Area type="monotone" dataKey="ERROR" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorError)" name="Errors" />
+
+                  <XAxis
+                    dataKey="time"
+                    stroke={axisColor}
+                    tick={{
+                      fill: axisColor,
+                      fontSize: 11,
+                    }}
+                    axisLine={false}
+                  />
+
+                  <YAxis
+                    stroke={axisColor}
+                    tick={{
+                      fill: axisColor,
+                      fontSize: 11,
+                    }}
+                    axisLine={false}
+                  />
+
+                  <Tooltip contentStyle={tooltipStyle} />
+
+                  <Area
+                    type="monotone"
+                    dataKey="total"
+                    name="Total logs"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    fill="url(#totalGradient)"
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="ERROR"
+                    name="Errors"
+                    stroke="#ef4444"
+                    strokeWidth={2}
+                    fill="url(#errorGradient)"
+                  />
                 </AreaChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-500 text-xs font-mono">
-                No telemetry data available. Click "Seed Demo Logs" above.
+              <div className="flex h-full items-center justify-center font-mono text-xs text-slate-500">
+                No telemetry data available.
               </div>
             )}
           </div>
-        </div>
+        </article>
 
-        {/* Severity Distribution Bar Chart */}
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] p-5 shadow-sm dark:shadow-lg space-y-4">
+        <article className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-[#111726]">
           <div>
-            <h2 className="text-base font-semibold text-slate-900 dark:text-white">Severity Breakdown</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">Distribution by severity category</p>
+            <h2 className="font-semibold text-slate-900 dark:text-white">
+              Severity Breakdown
+            </h2>
+
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Distribution by severity category
+            </p>
           </div>
 
-          <div className="h-64 w-full pt-2">
+          <div className="h-64">
             {metrics ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={severityBarData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} vertical={false} />
-                  <XAxis dataKey="name" stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
-                  <YAxis stroke={axisStroke} tick={{ fontSize: 11, fill: axisStroke }} axisLine={false} />
+                <BarChart
+                  data={severityData}
+                  margin={{
+                    top: 10,
+                    right: 10,
+                    left: -20,
+                    bottom: 0,
+                  }}
+                >
+                  <CartesianGrid
+                    stroke={gridColor}
+                    strokeDasharray="3 3"
+                    vertical={false}
+                  />
+
+                  <XAxis
+                    dataKey="name"
+                    stroke={axisColor}
+                    tick={{
+                      fill: axisColor,
+                      fontSize: 11,
+                    }}
+                    axisLine={false}
+                  />
+
+                  <YAxis
+                    stroke={axisColor}
+                    tick={{
+                      fill: axisColor,
+                      fontSize: 11,
+                    }}
+                    axisLine={false}
+                  />
+
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    cursor={{ fill: theme === 'dark' ? '#1e293b' : '#f1f5f9' }}
+                    cursor={{
+                      fill:
+                        theme === 'dark'
+                          ? '#1e293b'
+                          : '#f1f5f9',
+                    }}
                   />
+
                   <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {severityBarData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    {severityData.map((entry) => (
+                      <Cell
+                        key={entry.name}
+                        fill={entry.color}
+                      />
                     ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full flex items-center justify-center text-slate-500 text-xs font-mono">
-                No data available.
+              <div className="flex h-full items-center justify-center font-mono text-xs text-slate-500">
+                No severity data available.
               </div>
             )}
           </div>
-        </div>
+        </article>
+      </section>
 
-      </div>
+      <section className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-[#111726]">
+        <div className="space-y-4 border-b border-slate-200 p-4 dark:border-slate-800 lg:p-6">
+          <div className="flex items-center gap-2">
+            <Terminal className="h-5 w-5 text-blue-500" />
 
-      {/* LOG EXPLORER SECTION */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#111726] shadow-sm dark:shadow-xl overflow-hidden transition-colors duration-200">
-        
-        {/* Filter Controls Header */}
-        <div className="p-4 lg:p-6 border-b border-slate-200 dark:border-slate-800 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div className="flex items-center space-x-2">
-              <Terminal className="h-5 w-5 text-blue-500 dark:text-blue-400" />
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">Log Stream Explorer</h2>
-              <span className="text-xs px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 font-mono">
-                {pagination.total} entries
-              </span>
-            </div>
+            <h2 className="text-lg font-bold text-slate-900 dark:text-white">
+              Log Stream Explorer
+            </h2>
 
-            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-              Auto-updating stream
-            </div>
+            <span className="rounded bg-slate-100 px-2 py-0.5 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-400">
+              {pagination.total} entries
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {/* Search Input */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 dark:text-slate-500">
-                <Search className="h-4 w-4" />
-              </div>
+              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+
               <input
-                type="text"
+                type="search"
                 value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value);
+                onChange={(event) => {
+                  setSearchTerm(event.target.value);
                   setCurrentPage(1);
                 }}
-                placeholder="Search logs by keyword or regex..."
-                className="w-full pl-9 pr-4 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 outline-none transition-all"
+                placeholder="Search logs..."
+                className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2 pl-9 pr-4 font-mono text-xs text-slate-900 outline-none transition focus:border-blue-500 dark:border-slate-700 dark:bg-[#090d16] dark:text-slate-200"
               />
             </div>
 
-            {/* Service Dropdown Filter */}
             <div className="relative">
               <select
                 value={selectedService}
-                onChange={(e) => {
-                  setSelectedService(e.target.value);
+                onChange={(event) => {
+                  setSelectedService(event.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full appearance-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-[#090d16] dark:text-slate-200"
               >
                 <option value="ALL">All Services</option>
-                {metrics?.services.map((srv) => (
-                  <option key={srv} value={srv}>{srv}</option>
+
+                {metrics?.services.map((service) => (
+                  <option key={service} value={service}>
+                    {service}
+                  </option>
                 ))}
               </select>
-              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
             </div>
 
-            {/* Severity Dropdown Filter */}
             <div className="relative">
               <select
                 value={selectedLevel}
-                onChange={(e) => {
-                  setSelectedLevel(e.target.value);
+                onChange={(event) => {
+                  setSelectedLevel(event.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-[#090d16] border border-slate-300 dark:border-slate-700/80 focus:border-blue-500 text-xs font-mono text-slate-900 dark:text-slate-200 outline-none transition-all appearance-none cursor-pointer"
+                className="w-full appearance-none rounded-xl border border-slate-300 bg-slate-50 px-3 py-2 font-mono text-xs text-slate-900 outline-none focus:border-blue-500 dark:border-slate-700 dark:bg-[#090d16] dark:text-slate-200"
               >
                 <option value="ALL">All Severities</option>
                 <option value="INFO">INFO</option>
@@ -458,117 +657,159 @@ export const DashboardPage: React.FC = () => {
                 <option value="ERROR">ERROR</option>
                 <option value="CRITICAL">CRITICAL</option>
               </select>
-              <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 absolute right-3 top-2.5 pointer-events-none" />
+
+              <ChevronDown className="pointer-events-none absolute right-3 top-2.5 h-4 w-4 text-slate-400" />
             </div>
           </div>
         </div>
 
-        {/* LOG TABLE */}
         <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-700 dark:text-slate-300 font-mono">
-            <thead className="bg-slate-100 dark:bg-[#0d1322] text-slate-600 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800 uppercase text-[10px] tracking-wider">
+          <table className="w-full text-left font-mono text-xs text-slate-700 dark:text-slate-300">
+            <thead className="border-b border-slate-200 bg-slate-100 text-[10px] uppercase tracking-wider text-slate-600 dark:border-slate-800 dark:bg-[#0d1322] dark:text-slate-400">
               <tr>
-                <th className="py-3 px-4 w-44">Timestamp</th>
-                <th className="py-3 px-4 w-28">Severity</th>
-                <th className="py-3 px-4 w-36">Service Tag</th>
-                <th className="py-3 px-4">Message</th>
-                <th className="py-3 px-4 w-12 text-center">Payload</th>
+                <th className="w-44 px-4 py-3">Timestamp</th>
+                <th className="w-28 px-4 py-3">Severity</th>
+                <th className="w-36 px-4 py-3">Service</th>
+                <th className="px-4 py-3">Message</th>
+                <th className="w-12 px-4 py-3 text-center">
+                  Data
+                </th>
               </tr>
             </thead>
+
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
-              {logs.length > 0 ? (
+              {loadingLogs ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-12 text-center text-slate-500"
+                  >
+                    Loading log stream...
+                  </td>
+                </tr>
+              ) : logs.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-12 text-center text-slate-500"
+                  >
+                    No records matched your filters.
+                  </td>
+                </tr>
+              ) : (
                 logs.map((log) => {
-                  const isExpanded = expandedLogId === log._id;
-                  const formattedTime = new Date(log.timestamp).toLocaleString();
+                  const expanded = expandedLogId === log._id;
 
                   return (
                     <React.Fragment key={log._id}>
                       <tr
-                        onClick={() => toggleExpand(log._id)}
-                        className={`hover:bg-slate-100/70 dark:hover:bg-slate-800/40 cursor-pointer transition-colors ${
-                          isExpanded ? 'bg-slate-100 dark:bg-slate-800/50' : ''
-                        }`}
+                        onClick={() =>
+                          setExpandedLogId(
+                            expanded ? null : log._id,
+                          )
+                        }
+                        className="cursor-pointer transition hover:bg-slate-100/70 dark:hover:bg-slate-800/40"
                       >
-                        <td className="py-3 px-4 text-slate-500 dark:text-slate-400 whitespace-nowrap">
-                          {formattedTime}
+                        <td className="whitespace-nowrap px-4 py-3 text-slate-500 dark:text-slate-400">
+                          {new Date(log.timestamp).toLocaleString()}
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          {getLevelBadge(log.level)}
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span
+                            className={`inline-flex rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${getLevelClasses(
+                              log.level,
+                            )}`}
+                          >
+                            {log.level}
+                          </span>
                         </td>
-                        <td className="py-3 px-4 whitespace-nowrap">
-                          <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-blue-700 dark:text-blue-300 border border-slate-200 dark:border-slate-700 font-medium">
+
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <span className="rounded border border-slate-200 bg-slate-100 px-2 py-0.5 text-blue-700 dark:border-slate-700 dark:bg-slate-800 dark:text-blue-300">
                             {log.service}
                           </span>
                         </td>
-                        <td className="py-3 px-4 text-slate-900 dark:text-slate-200 truncate max-w-md">
+
+                        <td className="max-w-md truncate px-4 py-3 text-slate-900 dark:text-slate-200">
                           {log.message}
                         </td>
-                        <td className="py-3 px-4 text-center">
-                          {isExpanded ? (
-                            <ChevronUp className="h-4 w-4 text-blue-500 dark:text-blue-400 inline" />
+
+                        <td className="px-4 py-3 text-center">
+                          {expanded ? (
+                            <ChevronUp className="inline h-4 w-4 text-blue-500" />
                           ) : (
-                            <ChevronDown className="h-4 w-4 text-slate-400 dark:text-slate-500 inline" />
+                            <ChevronDown className="inline h-4 w-4 text-slate-400" />
                           )}
                         </td>
                       </tr>
 
-                      {/* Expandable JSON Metadata View */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50 dark:bg-[#090d16]/90 border-t border-b border-slate-200 dark:border-slate-800">
+                      {expanded && (
+                        <tr className="bg-slate-50 dark:bg-[#090d16]/90">
                           <td colSpan={5} className="p-4">
-                            <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0d1322] p-4 space-y-2 shadow-inner">
-                              <div className="flex items-center justify-between text-[11px] text-slate-500 dark:text-slate-400 pb-2 border-b border-slate-200 dark:border-slate-800">
-                                <span className="font-semibold text-blue-600 dark:text-blue-400">Contextual Metadata Payload (JSON)</span>
-                                <span>ID: {log._id}</span>
-                              </div>
-                              <pre className="text-emerald-600 dark:text-emerald-400 text-xs font-mono overflow-x-auto p-3 bg-slate-900 dark:bg-[#060910] text-slate-100 rounded-lg border border-slate-800 dark:border-slate-900 leading-relaxed">
-                                {JSON.stringify(log.metadata || {}, null, 2)}
-                              </pre>
-                            </div>
+                            <pre className="overflow-x-auto rounded-lg border border-slate-800 bg-slate-900 p-4 text-xs leading-relaxed text-emerald-400">
+                              {JSON.stringify(
+                                log.metadata ?? {},
+                                null,
+                                2,
+                              )}
+                            </pre>
                           </td>
                         </tr>
                       )}
                     </React.Fragment>
                   );
                 })
-              ) : (
-                <tr>
-                  <td colSpan={5} className="py-12 text-center text-slate-500 font-mono text-xs">
-                    {loadingLogs ? 'Loading log stream...' : 'No log records matched your query criteria.'}
-                  </td>
-                </tr>
               )}
             </tbody>
           </table>
         </div>
 
-        {/* PAGINATION FOOTER */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs text-slate-500 dark:text-slate-400 font-mono bg-white dark:bg-[#111726]">
-          <div>
-            Showing Page <span className="text-slate-900 dark:text-white font-bold">{pagination.page}</span> of{' '}
-            <span className="text-slate-900 dark:text-white font-bold">{pagination.totalPages || 1}</span> ({pagination.total} logs)
-          </div>
+        <footer className="flex items-center justify-between border-t border-slate-200 p-4 font-mono text-xs text-slate-500 dark:border-slate-800">
+          <span>
+            Page{' '}
+            <strong className="text-slate-900 dark:text-white">
+              {pagination.page}
+            </strong>{' '}
+            of{' '}
+            <strong className="text-slate-900 dark:text-white">
+              {pagination.totalPages || 1}
+            </strong>
+          </span>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex gap-2">
             <button
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              type="button"
+              onClick={() =>
+                setCurrentPage((page) =>
+                  Math.max(1, page - 1),
+                )
+              }
+              disabled={currentPage <= 1}
+              className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
               Previous
             </button>
+
             <button
-              onClick={() => setCurrentPage((p) => Math.min(pagination.totalPages, p + 1))}
-              disabled={currentPage >= pagination.totalPages}
-              className="px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              type="button"
+              onClick={() =>
+                setCurrentPage((page) =>
+                  Math.min(
+                    pagination.totalPages || 1,
+                    page + 1,
+                  ),
+                )
+              }
+              disabled={
+                currentPage >= (pagination.totalPages || 1)
+              }
+              className="rounded-lg border border-slate-200 bg-slate-100 px-3 py-1.5 text-slate-700 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
             >
               Next
             </button>
           </div>
-        </div>
-
-      </div>
-
+        </footer>
+      </section>
     </div>
   );
 };
