@@ -6,6 +6,8 @@ node_modules/
 .env
 *.env
 .env.local
+mongo.env
+backend/.env.local
 
 # Build output
 dist/
@@ -21,3 +23,6 @@ npm-debug.log*
 .DS_Store
 Thumbs.db
 
+# mongo.env
+mongo.env
+backend/.env.local
