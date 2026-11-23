@@ -8,6 +8,10 @@ pipeline {
         disableConcurrentBuilds()
     }
 
+    environment {
+        DOCKERHUB_USER = 'city2484'
+    }
+
     stages {
 
         stage('Checkout') {
@@ -31,7 +35,8 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                    -t centrallog-backend:latest ./backend
+                      -t ${DOCKERHUB_USER}/centrallog-backend:${BUILD_NUMBER} \
+                      ./backend
                 '''
             }
         }
@@ -40,25 +45,55 @@ pipeline {
             steps {
                 sh '''
                     docker build \
-                    -t centrallog-frontend:latest ./frontend
+                      -t ${DOCKERHUB_USER}/centrallog-frontend:${BUILD_NUMBER} \
+                      ./frontend
                 '''
             }
         }
 
         stage('Verify Images') {
             steps {
-                sh 'docker images'
+                sh '''
+                    docker image inspect ${DOCKERHUB_USER}/centrallog-backend:${BUILD_NUMBER}
+                    docker image inspect ${DOCKERHUB_USER}/centrallog-frontend:${BUILD_NUMBER}
+                '''
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'docker-hub-creds',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_TOKEN'
+                    )
+                ]) {
+                    sh '''
+                        set +x
+
+                        export DOCKER_CONFIG="$(mktemp -d)"
+                        trap 'docker logout >/dev/null 2>&1 || true; rm -rf "$DOCKER_CONFIG"' EXIT
+
+                        printf '%s' "$DOCKER_TOKEN" | docker login \
+                          --username "$DOCKER_USER" \
+                          --password-stdin
+
+                        docker push ${DOCKERHUB_USER}/centrallog-backend:${BUILD_NUMBER}
+                        docker push ${DOCKERHUB_USER}/centrallog-frontend:${BUILD_NUMBER}
+                    '''
+                }
             }
         }
     }
 
     post {
         success {
-            echo 'CentralLog build completed successfully!'
+            echo 'CentralLog images built and pushed successfully!'
         }
 
         failure {
-            echo 'CentralLog build failed. Check console output.'
+            echo 'CentralLog pipeline failed. Check console output.'
         }
     }
 }
